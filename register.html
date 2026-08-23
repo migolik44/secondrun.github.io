@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open an account — Second Run</title>
+<meta name="description" content="Open a free Second Run account to save your own device log and price notes.">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a href="index.html" class="logo">SECOND RUN<span class="dot">.</span></a>
+    <nav class="site-nav">
+      <a href="index.html">Ledger</a>
+      <a href="index.html#grading">Grading guide</a>
+      <a href="index.html#about">About</a>
+    </nav>
+    <div class="nav-actions">
+      <a href="login.html" class="btn-ghost">Sign in</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="account-wrap">
+    <p class="kicker">New account</p>
+    <h1>Open a trade account</h1>
+    <p class="sub">Free to open. Save your own device log, track grade and price notes, and pick up where you left off.</p>
+
+    <div class="ledger-card">
+      <div class="form-banner" id="formBanner" role="alert"></div>
+
+      <form id="registerForm" novalidate>
+        <div class="field" id="fieldName">
+          <label for="name">Full name</label>
+          <input type="text" id="name" name="name" autocomplete="name" required>
+          <p class="field-error">Enter your name.</p>
+        </div>
+
+        <div class="field" id="fieldEmail">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="email" required>
+          <p class="field-error">Enter a valid email address.</p>
+        </div>
+
+        <div class="field" id="fieldPassword">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="new-password" required>
+          <p class="field-hint">At least 8 characters.</p>
+          <p class="field-error">Password must be at least 8 characters.</p>
+        </div>
+
+        <div class="field" id="fieldConfirm">
+          <label for="confirm">Confirm password</label>
+          <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+          <p class="field-error">Passwords don't match.</p>
+        </div>
+
+        <div class="field">
+          <label>What are you tracking?</label>
+          <div class="check-row">
+            <label><input type="checkbox" name="platform" value="Apple" checked> Apple</label>
+            <label><input type="checkbox" name="platform" value="Android" checked> Android</label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">Open account</button>
+      </form>
+
+      <div class="stamped-confirm" id="confirmPanel" style="display:none">
+        <span class="stamp mint stamp-in">Account opened</span>
+        <p id="confirmName">Welcome to the ledger.</p>
+        <p class="entry-no-big" id="confirmMeta"></p>
+      </div>
+    </div>
+
+    <p class="form-note">Already have an account? <a href="login.html">Sign in</a></p>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <span>© 2026 Second Run — an independent resale ledger. Not affiliated with Apple Inc. or Google LLC.</span>
+  <span>Prices are illustrative market notes, not offers.</span>
+</footer>
+
+<script src="script.js"></script>
+<script src="supabase-config.js"></script>
+<script>
+(function () {
+  var form = document.getElementById('registerForm');
+  var banner = document.getElementById('formBanner');
+  var submitBtn = document.getElementById('submitBtn');
+  var confirmPanel = document.getElementById('confirmPanel');
+
+  function showBanner(msg, type) {
+    banner.textContent = msg;
+    banner.className = 'form-banner show ' + type;
+  }
+  function clearFieldError(id) {
+    document.getElementById(id).classList.remove('has-error');
+  }
+  function setFieldError(id) {
+    document.getElementById(id).classList.add('has-error');
+  }
+  function emailValid(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    banner.className = 'form-banner';
+
+    var name = document.getElementById('name').value.trim();
+    var email = document.getElementById('email').value.trim().toLowerCase();
+    var password = document.getElementById('password').value;
+    var confirm = document.getElementById('confirm').value;
+    var platforms = Array.from(form.querySelectorAll('input[name="platform"]:checked')).map(function (el) { return el.value; });
+
+    var valid = true;
+    ['fieldName', 'fieldEmail', 'fieldPassword', 'fieldConfirm'].forEach(clearFieldError);
+
+    if (!name) { setFieldError('fieldName'); valid = false; }
+    if (!emailValid(email)) { setFieldError('fieldEmail'); valid = false; }
+    if (password.length < 8) { setFieldError('fieldPassword'); valid = false; }
+    if (confirm !== password) { setFieldError('fieldConfirm'); valid = false; }
+
+    if (!valid) {
+      showBanner('Check the fields below and try again.', 'error');
+      return;
+    }
+
+    if (!sbClient) {
+      showBanner('Supabase isn\u2019t configured yet. Add your Project URL and anon key to supabase-config.js.', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Opening account…';
+
+    try {
+      var result = await sbClient.auth.signUp({
+        email: email,
+        password: password,
+        options: { data: { name: name, platforms: platforms } }
+      });
+
+      if (result.error) {
+        showBanner(result.error.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Open account';
+        return;
+      }
+
+      var user = result.data.user;
+      var session = result.data.session;
+
+      form.style.display = 'none';
+      banner.className = 'form-banner';
+      confirmPanel.style.display = 'block';
+
+      if (!session) {
+        // Email confirmation is on for this project — no session yet.
+        document.querySelector('#confirmPanel .stamp').textContent = 'Almost there';
+        document.getElementById('confirmName').textContent = 'Check ' + email + ' for a confirmation link to finish opening your account.';
+        document.getElementById('confirmMeta').textContent = '';
+        return;
+      }
+
+      // Session exists — fetch the profile row for the ledger entry number.
+      var entryLabel = '';
+      try {
+        var profileRes = await sbClient.from('profiles').select('entry_no').eq('id', user.id).single();
+        if (profileRes.data) {
+          entryLabel = 'Ledger entry #' + String(profileRes.data.entry_no).padStart(4, '0') + ' · ' + email;
+        }
+      } catch (err) { /* profile trigger may still be finishing — non-fatal */ }
+
+      document.getElementById('confirmName').textContent = 'Welcome, ' + name + '. Your account is ready.';
+      document.getElementById('confirmMeta').textContent = entryLabel;
+    } catch (err) {
+      showBanner('Something went wrong opening your account. Please try again.', 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Open account';
+    }
+  });
+})();
+</script>
+</body>
+</html>
