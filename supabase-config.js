@@ -7,7 +7,7 @@
 // within the permissions your Row Level Security policies allow.
 
 const SUPABASE_URL = 'sb_publishable_wy9d1L6Iv5u7cG5vuimd8g_tsyML2jZ';
-const SUPABASE_ANON_KEY = 'sb_secret_AxhiC3X4D2XcqisW0CnSQA_embwjKkU';
+const SUPABASE_ANON_KEY = 'sb_secret_GSkpyhVuyepMyXpuNi21Aw_SRtgTrTd';
 
 const sbClient = (SUPABASE_URL.startsWith('http') && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
